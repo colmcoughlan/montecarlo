@@ -220,7 +220,7 @@ int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double b
 	int i,j,k;
 	double x,y,a,b,c;
 	int yorigin = (imsize/2);	// centre of distribution (pixels). Assumed centre is of the form (255,256) for a 512 map.
-	int xorigin = yorigin;
+	int xorigin = yorigin - 1;
 
 	bpa = 90 - bpa; // convert from CCW measurement used in astronomy
 
