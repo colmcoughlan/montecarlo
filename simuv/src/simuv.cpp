@@ -80,6 +80,10 @@ int main()
 	double* ldterm;
 	
 	double shift[2];
+	shift[0]=0.0;
+	shift[1]=0.0;
+	
+	int peak[2];
 
 	ifstream fin;
 	ofstream fout;
@@ -87,7 +91,7 @@ int main()
 	char outdata[]="simmodel";
 
 
-	cout<<"Welcome to uvfill"<<endl;
+	cout<<"Welcome to simuv"<<endl;
 	cout<<"This tool will create a simulated observation of model CSV files with the UV data from a real observation"<<endl;
 	cout<<"Values in the CSV file are interpreted as fluxes in Jy."<<endl;
 	cout<<"Please enter the imsize of the model map (pixels)"<<endl;
@@ -109,6 +113,20 @@ int main()
 	if(err==0)
 	{
 		cout<<"Imap read successful"<<endl;
+		temp = 0.0;
+		for(i=0;i<imsize;i++)
+		{
+			for(j=0;j<imsize;j++)
+			{
+				if(imap[i*imsize+j]>temp)
+				{
+					temp = imap[i*imsize+j];
+					peak[0] = i;
+					peak[1] = j;
+				}
+			}
+		}
+		cout<<"Peak of "<<temp<<" detected at ("<<peak[1]<<","<<peak[0]<<")."<<endl;
 	}
 	else
 	{
@@ -349,26 +367,27 @@ int csv_read(string filename, int imsize, double* matrix)
 
 	if(fin.is_open())
 	{
-		i=imsize-1;
+		i=0;
 		while(getline(fin,str))
 		{
 			p1=0;
 			for(j=0;j<imsize;j++)
 			{
 				p2=str.find_first_of(",",p1);
-				matrix[i*imsize+j]=atof((str.substr(p1,p2-p1)).c_str());	// left to right, from the end of the file
-				p1=p2+1;							// this is the Octave way...
+				matrix[i*imsize+j]=atof((str.substr(p1,p2-p1)).c_str());	// left to right, from the start of the file
+				p1=p2+1;							// Note Octave writes this upside-down...
 			}
-			i--;
+			i++;
 		}
 	}
 	else
 	{
+		cout<<"Error opening CSV file "<<filename<<endl;
 		return(1);
 	}
 
 	
-	if(i!=-1)
+	if(i!=imsize)
 	{
 		cout<<"Problem reading file. Look at dimensions."<<endl;
 		return(1);
@@ -389,8 +408,8 @@ int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int
 	
 	grid = new double[imsize];
 	
-	k=(imsize/2)-1;
-	for(i=0;i<imsize;i++)
+	k=(imsize/2);
+	for(i=0;i<imsize;i++)	// centre of map assumed to be at imsize/2
 	{
 		grid[i] = (i-k)*cellsize;
 	}
@@ -427,11 +446,11 @@ int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int
 				lri = llr +10;
 				n=0;
 
-				for(xctr = imsize-1; xctr>=0; xctr--)	// note each thread only adds to one coord (safe)
+				for(xctr = 0; xctr<imsize; xctr++)	// note each thread only adds to one coord (safe)
 				{
 					for(yctr = 0; yctr<imsize; yctr++)	// remember to reverse axis for RA (xcoord) (having read from CSV file)
 					{
-						temp1 = mtwopi*((u_curr*grid[xctr]) + (v_curr*grid[yctr]) );
+						temp1 = mtwopi*((-u_curr*grid[xctr]) + (v_curr*grid[yctr]) );
 						temp2 = sin(temp1);
 						temp1 = cos(temp1);
 
@@ -453,10 +472,10 @@ int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int
 			}
 		}
 	}
-	
-	
+
+
 	delete[] grid;
-	
+
 	return(0);
 }
 
