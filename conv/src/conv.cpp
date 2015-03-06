@@ -10,7 +10,7 @@ extern "C"{
 	using namespace std;
 
 
-int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double bmin, double bpa, double* peak);
+int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double bmin, double bpa, int* peak);
 void arrange_ft(double* arr, int imsize);
 int convolve(double* data, fftw_complex* response, int imsize, int pad_factor, double* output , fftw_plan& forward_transform, fftw_plan& backward_transform, double* double_buff, fftw_complex* complex_buff);
 int ft_beam(double* beam, fftw_complex* ft_beam, int imsize, int pad_factor, fftw_plan& plan, double* double_buff, fftw_complex* complex_buff);
@@ -158,6 +158,11 @@ int main(int argc, char** argv)
 
 	// make ft of new beam
 	
+	// load model map to get peak	
+
+	ncc = 0;
+	quickfits_read_map( model_map_name.c_str() , model_map , imsize2 , &null_double , &null_double , &null_double , ncc, 0 );	// load model map
+	
 	temp = 0.0;
 	for(int i=0;i<imsize;i++)
 	{
@@ -171,6 +176,7 @@ int main(int argc, char** argv)
 			}
 		}
 	}
+	cout<<"Peak detected at ("<<peak[1]<<","<<peak[0]<<")."<<endl;
 
 	gen_gauss( model_map , imsize , cell , bmaj_out , bmin_out , bpa_out, peak);	// make restoring beam
 
@@ -229,7 +235,7 @@ int main(int argc, char** argv)
 	return(0);
 }
 
-int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double bmin, double bpa, double* peak)
+int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double bmin, double bpa, int* peak)
 {
 	int imsize2=imsize*imsize;
 	int i,j,k;

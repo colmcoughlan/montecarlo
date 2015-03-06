@@ -203,7 +203,7 @@ int main()
 	
 	cout<<"\tRaw UV data and visibility read complete."<<endl;
 	cout<<"\t"<<nvis<<" visibilites read."<<endl;
-	cout<<"\t"<<nif<<" IFs with "<<nchan<<" channels each detected."<<endl;
+	cout<<"\t"<<nif<<" IF(s) with "<<nchan<<" channel(s) each detected."<<endl;
 
 
 	err = quickfits_write_map( "model_imap.fits" , imap , imsize , cellsize*(180.0/M_PI) , ra , dec , shift , shift , freq , 0 , 1 , outdata , outdata , outdata , 0 , outdata , outdata , 0 , 0 , 0 , 0 , false);
