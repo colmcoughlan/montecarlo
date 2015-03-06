@@ -10,7 +10,7 @@ extern "C"{
 	using namespace std;
 
 
-int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double bmin, double bpa);
+int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double bmin, double bpa, double* peak);
 void arrange_ft(double* arr, int imsize);
 int convolve(double* data, fftw_complex* response, int imsize, int pad_factor, double* output , fftw_plan& forward_transform, fftw_plan& backward_transform, double* double_buff, fftw_complex* complex_buff);
 int ft_beam(double* beam, fftw_complex* ft_beam, int imsize, int pad_factor, fftw_plan& plan, double* double_buff, fftw_complex* complex_buff);
@@ -42,9 +42,10 @@ int main(int argc, char** argv)
 	double null_double;
 
 	int err;
-	int pad_factor = 1;
+	int pad_factor = 2;
 	int stokes;
 	double temp;
+	int peak[2];
 
 	double ra;
 	double dec;
@@ -156,8 +157,22 @@ int main(int argc, char** argv)
 	backward_transform = fftw_plan_dft_c2r_2d(imsize * pad_factor , imsize * pad_factor , complex_buff , double_buff , FFTW_ESTIMATE );	// r2c is always a forward transform etc
 
 	// make ft of new beam
+	
+	temp = 0.0;
+	for(int i=0;i<imsize;i++)
+	{
+		for(int j=0;j<imsize;j++)
+		{
+			if(model_map[i*imsize+j]>temp)
+			{
+				temp = model_map[i*imsize+j];
+				peak[0] = i;
+				peak[1] = j;
+			}
+		}
+	}
 
-	gen_gauss( model_map , imsize , cell , bmaj_out , bmin_out , bpa_out);	// make restoring beam
+	gen_gauss( model_map , imsize , cell , bmaj_out , bmin_out , bpa_out, peak);	// make restoring beam
 
 	if( pad_factor == 1)
 	{
@@ -214,13 +229,13 @@ int main(int argc, char** argv)
 	return(0);
 }
 
-int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double bmin, double bpa)
+int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double bmin, double bpa, double* peak)
 {
 	int imsize2=imsize*imsize;
 	int i,j,k;
 	double x,y,a,b,c;
-	int yorigin = (imsize/2);	// centre of distribution (pixels). Assumed centre is of the form (255,256) for a 512 map.
-	int xorigin = yorigin;
+	int xorigin = peak[0];	// centre of distribution (pixels). Assumed centre is of the form (255,256) for a 512 map.
+	int yorigin = peak[1];
 
 	bpa = 90 - bpa; // convert from CCW measurement used in astronomy
 
@@ -235,19 +250,19 @@ int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double b
 	c=0.5*(pow(sin(bpa)/bmaj,2)+pow(cos(bpa)/bmin,2));
 
 
+	i=0;
 	j=0;
-	k=0;
 
-	for(i=0;i<imsize2;i++)
+	for(k=0;k<imsize2;k++)
 	{
-		x=double(k-xorigin)*cellsize;
+		x=double(i-xorigin)*cellsize;
 		y=double(j-yorigin)*cellsize;
-		matrix[i]=exp(-(a*pow(x,2)+2.0*b*x*y+c*pow(y,2)));	// 2d gaussian general form
-		k++;
-		if(k==imsize)
+		matrix[k]=exp(-(a*pow(x,2)+2.0*b*x*y+c*pow(y,2)));	// 2d gaussian general form
+		j++;
+		if(j==imsize)
 		{
-			k=0;
-			j++;
+			j=0;
+			i++;
 		}
 	}
 
