@@ -28,7 +28,6 @@ extern "C"{
 #include <unistd.h>
 
 
-int csv_read(string filename, int imsize, double* matrix);
 string int_to_str(int i);
 int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize, double cellsize, double* uvblock, int blocksize);
 
@@ -64,6 +63,7 @@ int main()
 	double stddev_dterm;
 
 	int imsize;
+	int imsize2;
 	double cellsize;
 
 	double *imap;
@@ -87,15 +87,17 @@ int main()
 
 	ifstream fin;
 	ofstream fout;
+	double* null_double;
 
-	char outdata[]="simmodel";
+	char outdata[]="simuv_model";
 
 
 	cout<<"Welcome to simuv"<<endl;
-	cout<<"This tool will create a simulated observation of model CSV files with the UV data from a real observation"<<endl;
-	cout<<"Values in the CSV file are interpreted as fluxes in Jy."<<endl;
+	cout<<"This tool will create a simulated observation of model FITS files with the UV data from a real observation"<<endl;
+	cout<<"Values in the FITS models are interpreted as fluxes in Jy."<<endl;
 	cout<<"Please enter the imsize of the model map (pixels)"<<endl;
 	cin>>imsize;
+	imsize2 = imsize * imsize;
 	cout<<"Please enter the cellsize of the model map (as)"<<endl;
 	cin>>cellsize;
 
@@ -109,7 +111,7 @@ int main()
 
 	cout<<"Please enter the name of the I model map"<<endl;
 	cin>>modelname;
-	err=csv_read(modelname,imsize,imap);
+	err = quickfits_read_map( modelname.c_str() , imap , imsize2 , null_double , null_double , null_double , 0 , 0 );
 	if(err==0)
 	{
 		cout<<"Imap read successful"<<endl;
@@ -136,7 +138,7 @@ int main()
 
 	cout<<"Please enter the name of the Q model map"<<endl;
 	cin>>modelname;
-	err=csv_read(modelname,imsize,qmap);
+	err = quickfits_read_map( modelname.c_str() , qmap , imsize2 , null_double , null_double , null_double , 0 , 0 );
 	if(err==0)
 	{
 		cout<<"Qmap read successful"<<endl;
@@ -149,7 +151,7 @@ int main()
 
 	cout<<"Please enter the name of the U model map"<<endl;
 	cin>>modelname;
-	err=csv_read(modelname,imsize,umap);
+	err = quickfits_read_map( modelname.c_str() , umap , imsize2 , null_double , null_double , null_double , 0 , 0 );
 	if(err==0)
 	{
 		cout<<"Umap read successful"<<endl;
@@ -162,7 +164,7 @@ int main()
 	
 	cout<<"Please enter the name of the V model map"<<endl;
 	cin>>modelname;
-	err=csv_read(modelname,imsize,vmap);
+	err = quickfits_read_map( modelname.c_str() , vmap , imsize2 , null_double , null_double , null_double , 0 , 0 );
 	if(err==0)
 	{
 		cout<<"Vmap read successful"<<endl;
@@ -226,11 +228,6 @@ int main()
 
 	tempfilename.assign("output_no_noise.fits");
 	err=quickfits_overwrite_uv_data(tempfilename.c_str(), nvis, nchan, nif, u_array, v_array, uvblock_model);
-
-	cout<<"Writing out model maps as FITS images."<<endl;
-
-	temp=imsize/2;
-	stddev=(imsize/2)+1;
 
 	cout<<"Would you like to add normally distributed noise to the DFT? (1 = yes, 0 = no)"<<endl;
 	cin>>question;
@@ -322,6 +319,8 @@ int main()
 		delete[] rdterm;
 		delete[] ldterm;
 		gsl_rng_free (r);
+		
+		cout<<"Process complete."<<endl<<"Closing Program"<<endl;
 	}
 	else
 	{
@@ -354,48 +353,6 @@ string int_to_str(int i)
 	return(str);
 }
 
-
-int csv_read(string filename, int imsize, double* matrix)
-{
-	fstream fin;
-
-	string str;
-	int i,j;
-	size_t p1,p2;
-
-	fin.open(filename.c_str(), ios::in);
-
-	if(fin.is_open())
-	{
-		i=0;
-		while(getline(fin,str))
-		{
-			p1=0;
-			for(j=0;j<imsize;j++)
-			{
-				p2=str.find_first_of(",",p1);
-				matrix[i*imsize+j]=atof((str.substr(p1,p2-p1)).c_str());	// left to right, from the start of the file
-				p1=p2+1;							// Note Octave writes this upside-down...
-			}
-			i++;
-		}
-	}
-	else
-	{
-		cout<<"Error opening CSV file "<<filename<<endl;
-		return(1);
-	}
-
-	
-	if(i!=imsize)
-	{
-		cout<<"Problem reading file. Look at dimensions."<<endl;
-		return(1);
-	}
-
-	fin.close();
-	return(0);
-}
 
 int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize, double cellsize, double* uvblock, int blocksize)
 {
