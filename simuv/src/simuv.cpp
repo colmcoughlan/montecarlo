@@ -92,7 +92,7 @@ int main()
 	char outdata[]="simuv_model";
 
 
-	cout<<"Welcome to simuv"<<endl;
+	cout<<"Welcome to simuv v1.0"<<endl;
 	cout<<"This tool will create a simulated observation of model FITS files with the UV data from a real observation"<<endl;
 	cout<<"Values in the FITS models are interpreted as fluxes in Jy."<<endl;
 	cout<<"Please enter the imsize of the model map (pixels)"<<endl;
