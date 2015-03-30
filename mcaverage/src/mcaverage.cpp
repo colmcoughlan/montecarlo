@@ -31,12 +31,12 @@ extern "C"{
 
 
 string int_to_str(int i);
-double average_region(double* map, int blcx, int blcy, int trcx, int trcy, int imsize, double& point_value);
+double average_region(double* map, int blcx, int blcy, int trcx, int trcy, int imsize);
 double rms_region(double* map, int blcx, int blcy, int trcx, int trcy, int imsize);
 
 int main(int argc, char** argv)
 {
-	cout<<"Init"<<endl;
+	cout<<"Starting program."<<endl;
 
 	if(argc!=23)
 	{
@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 	double* errors2;
 	double* average;
 
-	cout<<"Loading"<<endl;
+	cout<<"Reading user input."<<endl;
 
 	modelfilename.assign(argv[1]);		// read in the names of the model file, the stem of the Monte Carlo files, and the ending
 	mcstem.assign(argv[2]);
@@ -164,7 +164,9 @@ int main(int argc, char** argv)
 	shift[1] = atoi(argv[21]);
 	outname.assign(argv[22]);		// output names
 
-	cout<<"Loaded"<<endl;
+	cout<<"Loaded. Working on model file "<<modelfilename<<endl;
+	cout<<"MC stem = "<<mcstem<<endl;
+	cout<<"MC end = "<<ending<<endl;
 
 	hbox_size = int(box_size / 2);
 
@@ -258,20 +260,20 @@ int main(int argc, char** argv)
 		
 		// record flux in region on map (not model)
 
-		point_value[i] = average_region( data , blcx_sourcebox - hbox_size , blcy_sourcebox  - hbox_size ,  blcx_sourcebox + hbox_size , blcy_sourcebox  + hbox_size , imsize, temp );	// find sum of flux
+		point_value[i] = average_region( data , blcx_sourcebox - hbox_size , blcy_sourcebox  - hbox_size ,  blcx_sourcebox + hbox_size , blcy_sourcebox  + hbox_size , imsize );	// find sum of flux
 		point_value[i] = point_value[i] * double(pow( box_size , 2)) / pixels_per_beam;
 
-		point_value2[i] = average_region( data , blcx_sourcebox2 - hbox_size , blcy_sourcebox2  - hbox_size ,  blcx_sourcebox2 + hbox_size , blcy_sourcebox2  + hbox_size , imsize, temp );	// find sum of flux
+		point_value2[i] = average_region( data , blcx_sourcebox2 - hbox_size , blcy_sourcebox2  - hbox_size ,  blcx_sourcebox2 + hbox_size , blcy_sourcebox2  + hbox_size , imsize );	// find sum of flux
 		point_value2[i] = point_value2[i] * double(pow( box_size , 2)) / pixels_per_beam;
 
-		point_value3[i] = average_region( data , blcx_sourcebox3 - hbox_size , blcy_sourcebox3  - hbox_size ,  blcx_sourcebox3 + hbox_size , blcy_sourcebox3  + hbox_size , imsize, temp );	// find sum of flux
+		point_value3[i] = average_region( data , blcx_sourcebox3 - hbox_size , blcy_sourcebox3  - hbox_size ,  blcx_sourcebox3 + hbox_size , blcy_sourcebox3  + hbox_size , imsize );	// find sum of flux
 		point_value3[i] = point_value3[i] * double(pow( box_size , 2)) / pixels_per_beam;
 		
 		// record noise and total flux
 
 
 		map_rms[i] = rms_region( data , blcx_noise , blcy_noise , trcx_noise , trcy_noise , imsize);
-		map_sum[i] = average_region( data , blcx_sourcebox4 , blcy_sourcebox4 ,  trcx_sourcebox4 , trcy_sourcebox4 , imsize, temp );	// find sum of flux
+		map_sum[i] = average_region( data , blcx_sourcebox4 , blcy_sourcebox4 ,  trcx_sourcebox4 , trcy_sourcebox4 , imsize );	// find sum of flux
 		map_sum[i] = map_sum[i] * (trcx_sourcebox4 - blcx_sourcebox4) * (trcy_sourcebox4 - blcy_sourcebox4);
 
 		// generate total error map
@@ -464,19 +466,19 @@ int main(int argc, char** argv)
 	trcx_sourcebox4 = trcx_sourcebox4 - shift[0];
 	trcy_sourcebox4 = trcy_sourcebox4 - shift[1];
 
-	point_value[0] = average_region( model , blcx_sourcebox - hbox_size , blcy_sourcebox  - hbox_size ,  blcx_sourcebox + hbox_size , blcy_sourcebox  + hbox_size , imsize, temp );	// find sum of flux
+	point_value[0] = average_region( model , blcx_sourcebox - hbox_size , blcy_sourcebox  - hbox_size ,  blcx_sourcebox + hbox_size , blcy_sourcebox  + hbox_size , imsize );	// find sum of flux
 	point_value[0] = point_value[0] * double(pow( box_size , 2)) / pixels_per_beam;
 	cout<<"Model value at point 1 = "<<point_value[0]<<" Jy."<<endl;
 
-	point_value2[0] = average_region( model , blcx_sourcebox2 - hbox_size , blcy_sourcebox2  - hbox_size ,  blcx_sourcebox2 + hbox_size , blcy_sourcebox2  + hbox_size , imsize, temp );	// find sum of flux
+	point_value2[0] = average_region( model , blcx_sourcebox2 - hbox_size , blcy_sourcebox2  - hbox_size ,  blcx_sourcebox2 + hbox_size , blcy_sourcebox2  + hbox_size , imsize );	// find sum of flux
 	point_value2[0] = point_value2[0] * double(pow( box_size , 2)) / pixels_per_beam;
 	cout<<"Model value at point 2 = "<<point_value2[0]<<" Jy."<<endl;
 
-	point_value3[0] = average_region( model , blcx_sourcebox3 - hbox_size , blcy_sourcebox3  - hbox_size ,  blcx_sourcebox3 + hbox_size , blcy_sourcebox3  + hbox_size , imsize, temp );	// find sum of flux
+	point_value3[0] = average_region( model , blcx_sourcebox3 - hbox_size , blcy_sourcebox3  - hbox_size ,  blcx_sourcebox3 + hbox_size , blcy_sourcebox3  + hbox_size , imsize );	// find sum of flux
 	point_value3[0] = point_value3[0] * double(pow( box_size , 2)) / pixels_per_beam;
 	cout<<"Model value at point 3 = "<<point_value3[0]<<" Jy."<<endl;
 
-	map_sum[0] = average_region( model , blcx_sourcebox4 , blcy_sourcebox4 ,  trcx_sourcebox4 , trcy_sourcebox4 , imsize, temp );	// find sum of flux
+	map_sum[0] = average_region( model , blcx_sourcebox4 , blcy_sourcebox4 ,  trcx_sourcebox4 , trcy_sourcebox4 , imsize );	// find sum of flux
 	map_sum[0] = map_sum[0] * (trcx_sourcebox4 - blcx_sourcebox4) * (trcy_sourcebox4 - blcy_sourcebox4) / pixels_per_beam;
 	cout<<"Model total flux = "<<map_sum[0]<<" Jy."<<endl;
 
@@ -537,11 +539,10 @@ string int_to_str(int i)
 		on return = the average of the region
 */
 
-double average_region(double* map, int blcx, int blcy, int trcx, int trcy, int imsize , double& point_value)
+double average_region(double* map, int blcx, int blcy, int trcx, int trcy, int imsize)
 {
 	int i,j;
 	double sum = 0.0;
-	point_value = -99999;
 
 	trcx++;	// increment ends to make the for loop design a bit easier
 	trcy++;
@@ -551,10 +552,6 @@ double average_region(double* map, int blcx, int blcy, int trcx, int trcy, int i
 	{
 		for(j=blcy;j<trcy;j++)
 		{
-			if( map[j * imsize + i] > point_value )
-			{
-				point_value = map[j * imsize + i];
-			}
 			sum += map[j * imsize + i];	// add up over entire region, with openmp if possible
 		}
 	}
@@ -564,7 +561,14 @@ double average_region(double* map, int blcx, int blcy, int trcx, int trcy, int i
 
 	i = i *j;
 
-	return(sum/double(i));
+	if(i!=0)
+	{
+		return(sum/double(i));
+	}
+	else
+	{
+		return(map[blcy * imsize + blcx]);
+	}
 }
 
 /*
@@ -589,19 +593,18 @@ double rms_region(double* map, int blcx, int blcy, int trcx, int trcy, int imsiz
 	int i,j;
 	double sum = 0.0;
 	double mean;
-	double buff;
+	
+	mean = average_region( map,  blcx,  blcy,  trcx,  trcy,  imsize );
 
 	trcx++;	// increment ends to make the for loop design a bit easier
 	trcy++;
-
-	mean = average_region( map,  blcx,  blcy,  trcx,  trcy,  imsize , buff);
 
 	#pragma omp parallel for collapse(2) reduction(+:sum)
 	for(i=blcx;i<trcx;i++)
 	{
 		for(j=blcy;j<trcy;j++)
 		{
-			sum += pow(map[j * imsize + i] , 2.0);
+			sum += pow(map[j * imsize + i] - mean , 2.0);
 		}
 	}
 
@@ -610,7 +613,14 @@ double rms_region(double* map, int blcx, int blcy, int trcx, int trcy, int imsiz
 
 	i = i *j;
 
-	return(sqrt(sum/double(i)));
+	if(i!=0)
+	{
+		return(sqrt(sum/double(i)));
+	}
+	else
+	{
+		return(map[blcy * imsize + blcx] - mean);
+	}
 }
 
 

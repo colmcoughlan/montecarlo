@@ -11,6 +11,7 @@
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+// TEMPNOTE: Work on doing the transform centred on the peak. Make a grid of coords with (0,0) on peak
 
 #include <cmath>
 #include <iostream>
@@ -29,7 +30,7 @@ extern "C"{
 
 
 string int_to_str(int i);
-int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize, double cellsize, double* uvblock, int blocksize);
+int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize, double cellsize, double* uvblock, int blocksize, int peak[]);
 
 
 // g++ -I/Users/admin/git/quickfits -o uvfill uvfill2.cpp -L/Users/admin/git/quickfits -lquickfits -lcfitsio -O3
@@ -116,15 +117,15 @@ int main()
 	{
 		cout<<"Imap read successful"<<endl;
 		temp = 0.0;
-		for(i=0;i<imsize;i++)
+		for(i=0;i<imsize;i++)	// i is dec
 		{
 			for(j=0;j<imsize;j++)
 			{
 				if(imap[i*imsize+j]>temp)
 				{
 					temp = imap[i*imsize+j];
-					peak[0] = i;
-					peak[1] = j;
+					peak[1] = i;
+					peak[0] = j;
 				}
 			}
 		}
@@ -210,11 +211,11 @@ int main()
 	err = quickfits_write_map( "model_qmap.fits" , qmap , imsize , cellsize*(180.0/M_PI) , ra , dec , shift , shift , freq , 0 , 2 , outdata , outdata , outdata , 0 , outdata , outdata , 0 , 0 , 0 , 0 , false);
 	err = quickfits_write_map( "model_umap.fits" , umap , imsize , cellsize*(180.0/M_PI) , ra , dec , shift , shift , freq , 0 , 3 , outdata , outdata , outdata , 0 , outdata , outdata , 0 , 0 , 0 , 0 , false);
 	err = quickfits_write_map( "model_vmap.fits" , vmap , imsize , cellsize*(180.0/M_PI) , ra , dec , shift , shift , freq , 0 , 3 , outdata , outdata , outdata , 0 , outdata , outdata , 0 , 0 , 0 , 0 , false);
-	
 
 
+	cout<<"Performing DFT - this may take a moment."<<endl;
 //  DFT model into uvblock_model
-	err = dft_model(u_array, v_array, nvis, freq, if_array, nif, nchan, central_chan, chan_width, imap, qmap, umap, vmap, imsize, cellsize, uvblock_model,blocksize);
+	err = dft_model(u_array, v_array, nvis, freq, if_array, nif, nchan, central_chan, chan_width, imap, qmap, umap, vmap, imsize, cellsize, uvblock_model,blocksize,peak);
 
 
 
@@ -354,21 +355,23 @@ string int_to_str(int i)
 }
 
 
-int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize, double cellsize, double* uvblock, int blocksize)
+int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize, double cellsize, double* uvblock, int blocksize, int peak[])
 {
 	int i,j,k, xctr, yctr,n;
 	double u_curr, v_curr, temp1, temp2, curr_freq;
 	int if_size, chan_size, skip;
 	int llr,lli,rrr,rri,rlr,rli,lrr,lri;
-	double mtwopi = -2.0*M_PI;
-	double* grid;
+	double twopi = 2.0*M_PI;
+	double* grid_ra;
+	double* grid_dec;
 	
-	grid = new double[imsize];
+	grid_ra = new double[imsize];
+	grid_dec = new double[imsize];
 	
-	k=(imsize/2);
-	for(i=0;i<imsize;i++)	// centre of map assumed to be at imsize/2
+	for(i=0;i<imsize;i++)	// note ra should be reversed
 	{
-		grid[i] = (i-k)*cellsize;
+		grid_ra[i] = -(i-peak[0])*cellsize;
+		grid_dec[i] = (i-peak[1])*cellsize;
 	}
 
 
@@ -405,9 +408,9 @@ int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int
 
 				for(xctr = 0; xctr<imsize; xctr++)	// note each thread only adds to one coord (safe)
 				{
-					for(yctr = 0; yctr<imsize; yctr++)	// remember to reverse axis for RA (xcoord) (having read from CSV file)
+					for(yctr = 0; yctr<imsize; yctr++)
 					{
-						temp1 = mtwopi*((-u_curr*grid[xctr]) + (v_curr*grid[yctr]) );
+						temp1 = twopi*((u_curr*grid_ra[yctr]) + (v_curr*grid_dec[xctr]) );
 						temp2 = sin(temp1);
 						temp1 = cos(temp1);
 
@@ -431,7 +434,8 @@ int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int
 	}
 
 
-	delete[] grid;
+	delete[] grid_ra;
+	delete[] grid_dec;
 
 	return(0);
 }

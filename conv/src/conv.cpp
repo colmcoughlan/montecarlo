@@ -17,11 +17,12 @@ int ft_beam(double* beam, fftw_complex* ft_beam, int imsize, int pad_factor, fft
 
 int main(int argc, char** argv)
 {
-	if(argc!=7)
+	if(argc!=9)
 	{
 		cout<<"Convolution tool to convolved model map with specified beam (as,as,deg)"<<endl;
 		cout<<"Residual map also added (set to 0 if none)"<<endl;
-		cout<<"Useage: conv model_map residual_map bmaj bmin bpa output_map"<<endl;
+		cout<<"Set centre of convolving Gaussian (peak of dirty map)"<<endl;
+		cout<<"Useage: conv model_map residual_map bmaj bmin bpa centre_x centre_y output_map"<<endl;
 		return(1);
 	}
 
@@ -84,7 +85,9 @@ int main(int argc, char** argv)
 	bmaj_out = atof(argv[3]);
 	bmin_out = atof(argv[4]);
 	bpa_out = atof(argv[5]);
-	output_map_name.assign(argv[6]);
+	peak[0] = atoi(argv[6]);
+	peak[1] = atoi(argv[7]);
+	output_map_name.assign(argv[8]);
 /*
 	cout<<"Convolution Tool."<<endl;
 	cout<<"Please enter the name of the model map"<<endl;
@@ -121,6 +124,14 @@ int main(int argc, char** argv)
 	if(do_residual)
 	{
 		err = quickfits_read_map_header( residual_map_name.c_str() , &imsize , &cell , &ra , &dec , centre_shift , rotations , &freq , &freq_delta , &stokes , object , observer , telescope , &equinox , date_obs , &bmaj_in , &bmin_in , &bpa_in , &ncc , 0);
+		if(bmaj_in ==0 or bmin_in ==0)
+		{
+			cout<<"Beam information not found in "<<residual_map_name.c_str()<<endl;
+			cout<<"Assuming residual beam is equal to specified convolution beam"<<endl;
+			bmaj_in = bmaj_out;
+			bmin_in = bmin_out;
+			bpa_in = bpa_out;
+		}
 	}
 	else
 	{
@@ -157,26 +168,6 @@ int main(int argc, char** argv)
 	backward_transform = fftw_plan_dft_c2r_2d(imsize * pad_factor , imsize * pad_factor , complex_buff , double_buff , FFTW_ESTIMATE );	// r2c is always a forward transform etc
 
 	// make ft of new beam
-	
-	// load model map to get peak	
-
-	ncc = 0;
-	quickfits_read_map( model_map_name.c_str() , model_map , imsize2 , &null_double , &null_double , &null_double , ncc, 0 );	// load model map
-	
-	temp = 0.0;
-	for(int i=0;i<imsize;i++)
-	{
-		for(int j=0;j<imsize;j++)
-		{
-			if(model_map[i*imsize+j]>temp)
-			{
-				temp = model_map[i*imsize+j];
-				peak[0] = i;
-				peak[1] = j;
-			}
-		}
-	}
-	cout<<"Peak detected at ("<<peak[1]<<","<<peak[0]<<")."<<endl;
 
 	gen_gauss( model_map , imsize , cell , bmaj_out , bmin_out , bpa_out, peak);	// make restoring beam
 
@@ -196,7 +187,7 @@ int main(int argc, char** argv)
 	{
 		quickfits_read_map( residual_map_name.c_str() , residual_map , imsize2 , &null_double , &null_double , &null_double , ncc, 0 );	// load residual map
 	}
-
+	
 	convolve( model_map , beam_ft , imsize , pad_factor  , model_map , forward_transform , backward_transform , double_buff , complex_buff);	// convolve and overwrite model_map
 
 	if(do_residual)
@@ -243,7 +234,11 @@ int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double b
 	int xorigin = peak[0];	// centre of distribution (pixels). Assumed centre is of the form (255,256) for a 512 map.
 	int yorigin = peak[1];
 
-	bpa = 90 - bpa; // convert from CCW measurement used in astronomy
+	bpa = bpa + 90.0; // convert from astronomy measures (in astro bmaj is on the yaxis)
+	
+	x = bmaj;
+	bmaj = bmin;
+	bmin = x;
 
 	bpa*=(M_PI/180.0);	// convert to radiens
 	bmaj*=((M_PI/180.0)/(2.354820045));	// convert to radiens from degrees and from FWHM to sigma (2*sqrt(2*log(2)))) = 2.354820045
