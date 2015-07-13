@@ -9,4 +9,4 @@ all:
 	${link} ${INC} -o simuv src/simuv.cpp ${LINKS} ${OPTS} 
 
 clean:
-	rm uvfill
+	rm simuv
