@@ -1,3 +1,5 @@
+// Version 1.1
+
 /*
  Copyright (c) 2014, Colm Coughlan
  All rights reserved.
@@ -69,31 +71,13 @@ int main(int argc, char** argv)
 		return(1);
 	}
 
-	double ra;
-	double dec;
+	fitsinfo_map fitsi;
 	int imsize;
 	double cell;	// stored in degrees
 
-	double centre_shift[2];	// where the peak of the source is on the map (x and y coords)
-	double rotations[2];	// any rotation applied to the map
-
-	double freq;	// stored in Hz
-	double freq_delta;
-
-	char object[FLEN_VALUE];
-	char observer[FLEN_VALUE];	// information about the source
-	char telescope[FLEN_VALUE];
-	double equinox;
-	char date_obs[FLEN_VALUE];
-
-	char history[] = "MEM deconvolution performed by PMEM. See PEM logs for details.";
+	char history[] = "FITS file produced by mcaverage.";
 
 	int stokes;	// stokes parameter
-
-	double bmaj;	// stored in degrees
-	double bmin;	// stored in degrees
-	double bpa;	// stored in degrees
-	int ncc;	// number of clean components
 
 	string modelfilename;
 	string mcstem;
@@ -198,18 +182,22 @@ int main(int argc, char** argv)
 	tfilename.assign(mcstem);
 	tfilename.append(int_to_str(1));
 	tfilename.append(ending);
-	err = quickfits_read_map_header( tfilename.c_str() , &imsize , &cell , &ra , &dec , centre_shift , rotations , &freq , &freq_delta , &stokes , object , observer , telescope , &equinox , date_obs , &bmaj , &bmin , &bpa , &ncc , -1);
+	err = quickfits_read_map_header( tfilename.c_str() , &fitsi);
 	if(err!=0)
 	{
 		cout<<endl<<"Error detected opening "<<tfilename<<", err = "<<err<<endl<<endl;
 		return(1);
 	}
-	ncc = 0;	// don't read in any clean components, not necessary
+	fitsi.ncc = 0;	// don't read in any clean components, not necessary
+	fitsi.cc_table_version = -1;
+	
+	imsize = fitsi.imsize_ra;
+	cell = fitsi.cell_ra;
 
 	cout<<"Using cellsize "<<cell*M_PI/180.0<<" radiens and imsize "<<imsize<<" pixels."<<endl;
 
 	imsize2=imsize*imsize;
-	pixels_per_beam = bmaj * bmin * M_PI / ( 4.0 * log(2) * cell * cell );
+	pixels_per_beam = fitsi.bmaj * fitsi.bmin * M_PI / ( 4.0 * log(2) * cell * cell );
 	cout<<"Number of pixels per beam = "<<pixels_per_beam<<endl;
 
 
@@ -229,7 +217,7 @@ int main(int argc, char** argv)
 
 	cout<<"Loading model fits file. Assuming cellsize etc. remain the same."<<endl;
 	tfilename.assign(modelfilename);
-	err = quickfits_read_map(tfilename.c_str() , model , imsize2 , null_double , null_double , null_double , ncc , -1);
+	err = quickfits_read_map(tfilename.c_str() , fitsi , model , null_double , null_double , null_double);
 	if(err!=0)
 	{
 		cout<<endl<<"Error detected opening "<<tfilename<<", err = "<<err<<endl<<endl;
@@ -251,7 +239,7 @@ int main(int argc, char** argv)
 		tfilename.assign(mcstem);
 		tfilename.append(int_to_str(i+1));
 		tfilename.append(ending);
-		err=quickfits_read_map(tfilename.c_str() , data , imsize2 , null_double , null_double , null_double , ncc , -1 );
+		err=quickfits_read_map(tfilename.c_str() , fitsi , data , null_double , null_double , null_double );
 		if(err!=0)
 		{
 			cout<<endl<<"Error detected opening "<<tfilename<<", err = "<<err<<endl<<endl;
@@ -335,16 +323,15 @@ int main(int argc, char** argv)
 
 	tfilename.assign(shift_info.str());
 	tfilename.append("_average_error.fits");
-	err = quickfits_write_map( tfilename.c_str() , errors , imsize , cell , ra , dec , centre_shift , rotations , freq , freq_delta , stokes , object , observer , telescope , equinox , date_obs , history , bmaj , bmin , bpa , 0 , true);
+	err = quickfits_write_map( tfilename.c_str() , errors , fitsi , history);
 
 	tfilename.assign(shift_info.str());
 	tfilename.append("_rms_error.fits");
-	err = quickfits_write_map( tfilename.c_str() , errors2 , imsize , cell , ra , dec , centre_shift , rotations , freq , freq_delta , stokes , object , observer , telescope , equinox , date_obs , history , bmaj , bmin , bpa , 0 , true);
+	err = quickfits_write_map( tfilename.c_str() , errors2 , fitsi , history);
 
 	tfilename.assign(shift_info.str());
 	tfilename.append("_average_map.fits");
-	err = quickfits_write_map( tfilename.c_str() , average , imsize , cell , ra , dec , centre_shift , rotations , freq , freq_delta , stokes , object , observer , telescope , equinox , date_obs , history , bmaj , bmin , bpa , 0 , true);
-
+	err = quickfits_write_map( tfilename.c_str() , average  , fitsi , history);
 
 	cout<<"Error maps generated. Also writing out distributions."<<endl;
 

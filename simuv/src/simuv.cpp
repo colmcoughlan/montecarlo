@@ -1,3 +1,5 @@
+// Version 1.1
+
 /*
  Copyright (c) 2014, Colm Coughlan
  All rights reserved.
@@ -30,21 +32,15 @@ extern "C"{
 
 
 string int_to_str(int i);
-int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize, double cellsize, double* uvblock, int blocksize, int peak[]);
-
+int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize_x, int imsize_y, double cellx, double celly, double* uvblock, int blocksize, int peak[]);
 
 // g++ -I/Users/admin/git/quickfits -o uvfill uvfill2.cpp -L/Users/admin/git/quickfits -lquickfits -lcfitsio -O3
 
 int main()
 {
-	double ra;
-	double dec;
-	double freq;
-	int nchan;
-	int nif;
-	int central_chan;
-	double chan_width;
-	char object[FLEN_VALUE];
+	fitsinfo_uv fitsi;
+	fitsinfo_map fitsi_map;
+
 	int blocksize;
 
 	string uvfits;
@@ -54,18 +50,16 @@ int main()
 
 	int err;
 	int i,j,k;
-	int nvis;
 	int question;
 	int nmaps;
 
+	double cellx , celly;
 
 	double temp;
 	double stddev;
 	double stddev_dterm;
 
-	int imsize;
 	int imsize2;
-	double cellsize;
 
 	double *imap;
 	double *qmap;
@@ -90,40 +84,38 @@ int main()
 	ofstream fout;
 	double* null_double;
 
-	char outdata[]="simuv_model";
+	char history[]="Simuv: Model written out.";
 
 
 	cout<<"Welcome to simuv v1.0"<<endl;
 	cout<<"This tool will create a simulated observation of model FITS files with the UV data from a real observation"<<endl;
 	cout<<"Values in the FITS models are interpreted as fluxes in Jy."<<endl;
-	cout<<"Please enter the imsize of the model map (pixels)"<<endl;
-	cin>>imsize;
-	imsize2 = imsize * imsize;
-	cout<<"Please enter the cellsize of the model map (as)"<<endl;
-	cin>>cellsize;
-
-	imap=new double[imsize*imsize];
-	qmap=new double[imsize*imsize];
-	umap=new double[imsize*imsize];
-	vmap=new double[imsize*imsize];
-	cellsize*=(M_PI)/(180.0*3600);
-
-
-
+	
 	cout<<"Please enter the name of the I model map"<<endl;
 	cin>>modelname;
-	err = quickfits_read_map( modelname.c_str() , imap , imsize2 , null_double , null_double , null_double , 0 , 0 );
+	
+	err =  quickfits_read_map_header(modelname.c_str() , &fitsi_map);
+	fitsi_map.ncc = 0;
+	fitsi_map.cc_table_version = 0;
+	imsize2 = fitsi_map.imsize_ra * fitsi_map.imsize_dec;
+	
+	imap=new double[imsize2];
+	qmap=new double[imsize2];
+	umap=new double[imsize2];
+	vmap=new double[imsize2];
+	
+	err = quickfits_read_map( modelname.c_str(), fitsi_map , imap , null_double , null_double , null_double);
 	if(err==0)
 	{
 		cout<<"Imap read successful"<<endl;
 		temp = 0.0;
-		for(i=0;i<imsize;i++)	// i is dec
+		for(i=0;i<fitsi_map.imsize_dec;i++)	// i is dec
 		{
-			for(j=0;j<imsize;j++)
+			for(j=0;j<fitsi_map.imsize_ra;j++)
 			{
-				if(imap[i*imsize+j]>temp)
+				if(imap[i*fitsi_map.imsize_ra+j]>temp)
 				{
-					temp = imap[i*imsize+j];
+					temp = imap[i*fitsi_map.imsize_ra+j];
 					peak[1] = i;
 					peak[0] = j;
 				}
@@ -139,7 +131,7 @@ int main()
 
 	cout<<"Please enter the name of the Q model map"<<endl;
 	cin>>modelname;
-	err = quickfits_read_map( modelname.c_str() , qmap , imsize2 , null_double , null_double , null_double , 0 , 0 );
+	err = quickfits_read_map( modelname.c_str() , fitsi_map , qmap , null_double , null_double , null_double);
 	if(err==0)
 	{
 		cout<<"Qmap read successful"<<endl;
@@ -152,7 +144,7 @@ int main()
 
 	cout<<"Please enter the name of the U model map"<<endl;
 	cin>>modelname;
-	err = quickfits_read_map( modelname.c_str() , umap , imsize2 , null_double , null_double , null_double , 0 , 0 );
+	err = quickfits_read_map( modelname.c_str() , fitsi_map , umap , null_double , null_double , null_double);
 	if(err==0)
 	{
 		cout<<"Umap read successful"<<endl;
@@ -165,7 +157,7 @@ int main()
 	
 	cout<<"Please enter the name of the V model map"<<endl;
 	cin>>modelname;
-	err = quickfits_read_map( modelname.c_str() , vmap , imsize2 , null_double , null_double , null_double , 0 , 0 );
+	err = quickfits_read_map( modelname.c_str() , fitsi_map , vmap , null_double , null_double , null_double);
 	if(err==0)
 	{
 		cout<<"Vmap read successful"<<endl;
@@ -175,7 +167,25 @@ int main()
 		cout<<"Problem reading model map."<<endl;
 		return(1);
 	}
-
+	
+	printf("Detected images sizes and cellsize: %d, %d, %lf, %lf",fitsi_map.imsize_ra,fitsi_map.imsize_dec,fitsi_map.cell_ra,fitsi_map.cell_dec);
+	cout<<"Manually override detected cellsize? (1 = yes, 0 = no)"<<endl;
+	cin>>i;
+	if(i!=0)
+	{
+		cout<<"Please enter the new ra cellsize in as"<<endl;
+		cin>>fitsi_map.cell_ra;
+		cout<<"Please enter the new dec cellsize in as"<<endl;
+		cin>>fitsi_map.cell_dec;
+		
+		cellx = fitsi_map.cell_ra * (M_PI)/(180.0*3600.0);	// convert from degrees to rad
+		celly = fitsi_map.cell_dec * (M_PI)/(180.0*3600.0);
+	}
+	else
+	{
+		cellx = fitsi_map.cell_ra * (M_PI)/(180.0);	// convert from degrees to rad
+		celly = fitsi_map.cell_dec * (M_PI)/(180.0);
+	}
 
 	cout<<"Please enter the name of the FITS file with the UV information"<<endl;
 	cin>>uvfits;
@@ -184,7 +194,7 @@ int main()
 
 	cout<<"Attempting to open "<<uvfits<<endl;
 	
-	quickfits_read_uv_header(uvfits.c_str(),&ra,&dec,object,&freq,&nvis, &nchan, &central_chan, &chan_width, &nif);
+	quickfits_read_uv_header(uvfits.c_str(),&fitsi);
 	if(err!=0)
 	{
 		cout<<"Error attempting to open fits file."<<endl;
@@ -192,30 +202,35 @@ int main()
 		return(1);
 	}
 	
-	blocksize = nvis*12*nif*nchan;
-	u_array = new double[nvis];
-	v_array = new double[nvis];
+	blocksize = fitsi.nvis*12*fitsi.nif*fitsi.nchan;
+	u_array = new double[fitsi.nvis];
+	v_array = new double[fitsi.nvis];
 	uvblock_model = new double[blocksize];
-	if_array = new double[nif];
+	if_array = new double[fitsi.nif];
 
 	
-	err=quickfits_read_uv_data(uvfits.c_str(),nvis,nchan,nif,u_array,v_array,uvblock_model, if_array);
+	err=quickfits_read_uv_data(uvfits.c_str(),fitsi,u_array,v_array,uvblock_model, if_array);
 
 	
 	cout<<"\tRaw UV data and visibility read complete."<<endl;
-	cout<<"\t"<<nvis<<" visibilites read."<<endl;
-	cout<<"\t"<<nif<<" IF(s) with "<<nchan<<" channel(s) each detected."<<endl;
+	cout<<"\t"<<fitsi.nvis<<" visibilites read."<<endl;
+	cout<<"\t"<<fitsi.nif<<" IF(s) with "<<fitsi.nchan<<" channel(s) each detected."<<endl;
+	
+	
+	fitsi_map.ra = fitsi.ra;
+	fitsi_map.dec = fitsi.dec;
+	fitsi_map.equinox = fitsi.equinox;
 
 
-	err = quickfits_write_map( "model_imap.fits" , imap , imsize , cellsize*(180.0/M_PI) , ra , dec , shift , shift , freq , 0 , 1 , outdata , outdata , outdata , 0 , outdata , outdata , 0 , 0 , 0 , 0 , false);
-	err = quickfits_write_map( "model_qmap.fits" , qmap , imsize , cellsize*(180.0/M_PI) , ra , dec , shift , shift , freq , 0 , 2 , outdata , outdata , outdata , 0 , outdata , outdata , 0 , 0 , 0 , 0 , false);
-	err = quickfits_write_map( "model_umap.fits" , umap , imsize , cellsize*(180.0/M_PI) , ra , dec , shift , shift , freq , 0 , 3 , outdata , outdata , outdata , 0 , outdata , outdata , 0 , 0 , 0 , 0 , false);
-	err = quickfits_write_map( "model_vmap.fits" , vmap , imsize , cellsize*(180.0/M_PI) , ra , dec , shift , shift , freq , 0 , 3 , outdata , outdata , outdata , 0 , outdata , outdata , 0 , 0 , 0 , 0 , false);
+	err = quickfits_write_map( "model_imap.fits" , imap , fitsi_map, history);
+	err = quickfits_write_map( "model_qmap.fits" , qmap , fitsi_map, history);
+	err = quickfits_write_map( "model_umap.fits" , umap , fitsi_map, history);
+	err = quickfits_write_map( "model_vmap.fits" , vmap , fitsi_map, history);
 
 
 	cout<<"Performing DFT - this may take a moment."<<endl;
 //  DFT model into uvblock_model
-	err = dft_model(u_array, v_array, nvis, freq, if_array, nif, nchan, central_chan, chan_width, imap, qmap, umap, vmap, imsize, cellsize, uvblock_model,blocksize,peak);
+	err = dft_model(u_array, v_array, fitsi.nvis, fitsi.freq, if_array, fitsi.nif, fitsi.nchan, fitsi.central_chan, fitsi.chan_width, imap, qmap, umap, vmap, fitsi_map.imsize_ra , fitsi_map.imsize_dec, cellx , celly, uvblock_model,blocksize,peak);
 
 
 
@@ -228,7 +243,7 @@ int main()
 
 
 	tempfilename.assign("output_no_noise.fits");
-	err=quickfits_overwrite_uv_data(tempfilename.c_str(), nvis, nchan, nif, u_array, v_array, uvblock_model);
+	err=quickfits_overwrite_uv_data(tempfilename.c_str(), fitsi, u_array, v_array, uvblock_model);
 
 	cout<<"Would you like to add normally distributed noise to the DFT? (1 = yes, 0 = no)"<<endl;
 	cin>>question;
@@ -301,7 +316,7 @@ int main()
 				uvblock_temp[j+1] = uvblock_model[j+1] + gsl_ran_gaussian(r,stddev);
 			}
 
-			err=quickfits_overwrite_uv_data(modelname.c_str(),nvis, nchan, nif, u_array, v_array, uvblock_temp);
+			err=quickfits_overwrite_uv_data(modelname.c_str(),fitsi, u_array, v_array, uvblock_temp);
 			
 			if(stddev_dterm != 0.0)
 			{
@@ -355,7 +370,7 @@ string int_to_str(int i)
 }
 
 
-int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize, double cellsize, double* uvblock, int blocksize, int peak[])
+int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize_ra, int imsize_dec, double cell_ra, double cell_dec, double* uvblock, int blocksize, int peak[])
 {
 	int i,j,k, xctr, yctr,n;
 	double u_curr, v_curr, temp1, temp2, curr_freq;
@@ -365,13 +380,18 @@ int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int
 	double* grid_ra;
 	double* grid_dec;
 	
-	grid_ra = new double[imsize];
-	grid_dec = new double[imsize];
+	grid_ra = new double[imsize_ra];
+	grid_dec = new double[imsize_dec];
+
 	
-	for(i=0;i<imsize;i++)	// note ra should be reversed
+	for(i=0;i<imsize_ra;i++)	// note ra should be reversed
 	{
-		grid_ra[i] = -(i-peak[0])*cellsize;
-		grid_dec[i] = (i-peak[1])*cellsize;
+		grid_ra[i] = -(i-peak[0])*cell_ra;
+	}
+	
+	for(i=0;i<imsize_dec;i++)
+	{
+		grid_dec[i] = (i-peak[1])*cell_dec;
 	}
 
 
@@ -406,9 +426,9 @@ int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int
 				lri = llr +10;
 				n=0;
 
-				for(xctr = 0; xctr<imsize; xctr++)	// note each thread only adds to one coord (safe)
+				for(xctr = 0; xctr<imsize_dec; xctr++)	// note each thread only adds to one coord (safe)
 				{
-					for(yctr = 0; yctr<imsize; yctr++)
+					for(yctr = 0; yctr<imsize_ra; yctr++)
 					{
 						temp1 = twopi*((u_curr*grid_ra[yctr]) + (v_curr*grid_dec[xctr]) );
 						temp2 = sin(temp1);

@@ -9,4 +9,4 @@ all:
 	${link} ${INC} -o conv src/conv.cpp ${LINKS} ${OPTS} 
 
 clean:
-	rm uvfill
+	rm conv

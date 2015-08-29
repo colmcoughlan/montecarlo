@@ -1,3 +1,5 @@
+// Version 1.1
+
 #include <iostream>
 #include <string>
 #include <fftw3.h>
@@ -25,6 +27,8 @@ int main(int argc, char** argv)
 		cout<<"Useage: conv model_map residual_map bmaj bmin bpa centre_x centre_y output_map"<<endl;
 		return(1);
 	}
+	
+	fitsinfo_map fitsi;
 
 	string model_map_name;
 	string residual_map_name;
@@ -48,23 +52,8 @@ int main(int argc, char** argv)
 	double temp;
 	int peak[2];
 
-	double ra;
-	double dec;
 	int imsize , imsize2;
 	double cell = 0;	// stored in degrees
-
-	double centre_shift[2];	// where the peak of the source is on the map (x and y coords)
-	double rotations[2];	// any rotation applied to the map
-
-	double freq;	// stored in Hz
-	double freq_delta;
-	int ncc;
-
-	char object[FLEN_VALUE];
-	char observer[FLEN_VALUE];	// information about the source
-	char telescope[FLEN_VALUE];
-	double equinox;
-	char date_obs[FLEN_VALUE];
 
 	char history[] = "Convolution performed by conv (external C++ program).";
 
@@ -123,8 +112,8 @@ int main(int argc, char** argv)
 
 	if(do_residual)
 	{
-		err = quickfits_read_map_header( residual_map_name.c_str() , &imsize , &cell , &ra , &dec , centre_shift , rotations , &freq , &freq_delta , &stokes , object , observer , telescope , &equinox , date_obs , &bmaj_in , &bmin_in , &bpa_in , &ncc , 0);
-		if(bmaj_in ==0 or bmin_in ==0)
+		err = quickfits_read_map_header( residual_map_name.c_str() , &fitsi);
+		if(fitsi.bmaj ==0 or fitsi.bmin ==0)
 		{
 			cout<<"Beam information not found in "<<residual_map_name.c_str()<<endl;
 			cout<<"Assuming residual beam is equal to specified convolution beam"<<endl;
@@ -132,12 +121,19 @@ int main(int argc, char** argv)
 			bmin_in = bmin_out;
 			bpa_in = bpa_out;
 		}
+		else
+		{
+			bmaj_in = fitsi.bmaj;
+			bmin_in = fitsi.bmin;
+			bpa_in = fitsi.bpa;
+		}
 	}
 	else
 	{
-		err = quickfits_read_map_header( model_map_name.c_str() , &imsize , &cell , &ra , &dec , centre_shift , rotations , &freq , &freq_delta , &stokes , object , observer , telescope , &equinox , date_obs , &bmaj_in , &bmin_in , &bpa_in , &ncc , 0);
+		err = quickfits_read_map_header( model_map_name.c_str() , &fitsi);
 	}
 	
+	imsize = fitsi.imsize_ra;
 	imsize2 = imsize * imsize;
 
 //	cout<<"Detected cellsize (in as) = "<<cell*3600<<endl;
@@ -145,11 +141,11 @@ int main(int argc, char** argv)
 
 	// assign memory
 
-	ncc = pad_factor * imsize * ( pad_factor * imsize / 2 + 1 );	// allowing for padding in buffers and reducing memory needed for r2c and c2r transform by taking Herm. conjugacy into account
+	err = pad_factor * imsize * ( pad_factor * imsize / 2 + 1 );	// allowing for padding in buffers and reducing memory needed for r2c and c2r transform by taking Herm. conjugacy into account
 
 	model_map = new double[imsize2];
-	beam_ft = ( fftw_complex* ) fftw_malloc( sizeof( fftw_complex ) * ncc );	// saving memory with herm. conjugacy
-	complex_buff = ( fftw_complex* ) fftw_malloc( sizeof( fftw_complex ) * ncc );	// allowing room for padding in buffers
+	beam_ft = ( fftw_complex* ) fftw_malloc( sizeof( fftw_complex ) * err );	// saving memory with herm. conjugacy
+	complex_buff = ( fftw_complex* ) fftw_malloc( sizeof( fftw_complex ) * err );	// allowing room for padding in buffers
 	double_buff = ( double* ) fftw_malloc( sizeof( double ) * pad_factor * pad_factor * imsize2 );
 	
 //	check if residual map has been provided
@@ -169,7 +165,7 @@ int main(int argc, char** argv)
 
 	// make ft of new beam
 
-	gen_gauss( model_map , imsize , cell , bmaj_out , bmin_out , bpa_out, peak);	// make restoring beam
+	gen_gauss( model_map , imsize , fitsi.cell_ra , bmaj_out , bmin_out , bpa_out, peak);	// make restoring beam
 
 	if( pad_factor == 1)
 	{
@@ -180,20 +176,20 @@ int main(int argc, char** argv)
 
 	// load in model map and convolve it with the new beam
 
-	ncc = 0;
-	quickfits_read_map( model_map_name.c_str() , model_map , imsize2 , &null_double , &null_double , &null_double , ncc, 0 );	// load model map
+	fitsi.ncc = 0;
+	quickfits_read_map( model_map_name.c_str() , fitsi , model_map , &null_double , &null_double , &null_double );	// load model map
 	
 	if(do_residual)
 	{
-		quickfits_read_map( residual_map_name.c_str() , residual_map , imsize2 , &null_double , &null_double , &null_double , ncc, 0 );	// load residual map
+		quickfits_read_map( residual_map_name.c_str() , fitsi , residual_map , &null_double , &null_double , &null_double);	// load residual map
 	}
 	
 	convolve( model_map , beam_ft , imsize , pad_factor  , model_map , forward_transform , backward_transform , double_buff , complex_buff);	// convolve and overwrite model_map
 
 	if(do_residual)
 	{
-		temp = bmaj_out * bmin_out * M_PI / ( 4.0 * log(2) * cell * cell );	// rescale residuals to new beam units
-		temp = temp / ( bmaj_in * bmin_in * M_PI / ( 4.0 * log(2) * cell * cell ) );
+		temp = bmaj_out * bmin_out * M_PI / ( 4.0 * log(2) * fitsi.cell_ra * fitsi.cell_dec );	// rescale residuals to new beam units
+		temp = temp / ( bmaj_in * bmin_in * M_PI / ( 4.0 * log(2) * fitsi.cell_ra * fitsi.cell_dec ) );
 	
 		#pragma omp parallel for
 		for(int i=0;i<imsize2;i++)
@@ -204,8 +200,12 @@ int main(int argc, char** argv)
 	}
 
 	// write out answer
+	
+	fitsi.bmaj = bmaj_out;
+	fitsi.bmin = bmin_out;
+	fitsi.bpa = bpa_out;
 
-	err = quickfits_write_map( output_map_name.c_str() , model_map , imsize , cell , ra , dec , centre_shift , rotations , freq , freq_delta , stokes , object , observer , telescope , equinox , date_obs , history , bmaj_out , bmin_out , bpa_out , 0 , true);
+	err = quickfits_write_map( output_map_name.c_str() , model_map , fitsi , history);
 
 	// clean up and exit
 
