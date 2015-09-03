@@ -1,0 +1,1 @@
+v1.11 - No longer need to add polarisation model maps if they are not needed.

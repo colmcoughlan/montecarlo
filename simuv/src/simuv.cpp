@@ -1,4 +1,4 @@
-// Version 1.1
+// Version 1.11
 
 /*
  Copyright (c) 2014, Colm Coughlan
@@ -87,7 +87,8 @@ int main()
 	char history[]="Simuv: Model written out.";
 
 
-	cout<<"Welcome to simuv v1.0"<<endl;
+	cout<<"Welcome to simuv v1.11"<<endl;
+	cout<<"Colm Coughlan. colmcoughlanirl@gmail.com"<<endl;
 	cout<<"This tool will create a simulated observation of model FITS files with the UV data from a real observation"<<endl;
 	cout<<"Values in the FITS models are interpreted as fluxes in Jy."<<endl;
 	
@@ -129,46 +130,67 @@ int main()
 		return(1);
 	}
 
-	cout<<"Please enter the name of the Q model map"<<endl;
+	cout<<"Please enter the name of the Q model map (0 for none)"<<endl;
 	cin>>modelname;
-	err = quickfits_read_map( modelname.c_str() , fitsi_map , qmap , null_double , null_double , null_double);
-	if(err==0)
+	if(modelname.compare("0") == 0)
 	{
-		cout<<"Qmap read successful"<<endl;
+		memset(qmap, 0.0, sizeof(double)*imsize2);
 	}
 	else
 	{
-		cout<<"Problem reading model map."<<endl;
-		return(1);
+		err = quickfits_read_map( modelname.c_str() , fitsi_map , qmap , null_double , null_double , null_double);
+		if(err==0)
+		{
+			cout<<"Qmap read successful"<<endl;
+		}
+		else
+		{
+			cout<<"Problem reading model map."<<endl;
+			return(1);
+		}
 	}
 
-	cout<<"Please enter the name of the U model map"<<endl;
+	cout<<"Please enter the name of the U model map (0 for none)"<<endl;
 	cin>>modelname;
-	err = quickfits_read_map( modelname.c_str() , fitsi_map , umap , null_double , null_double , null_double);
-	if(err==0)
+	if(modelname.compare("0") == 0)
 	{
-		cout<<"Umap read successful"<<endl;
+		memset(umap, 0.0, sizeof(double)*imsize2);
 	}
 	else
 	{
-		cout<<"Problem reading model map."<<endl;
-		return(1);
+		err = quickfits_read_map( modelname.c_str() , fitsi_map , umap , null_double , null_double , null_double);
+		if(err==0)
+		{
+			cout<<"Qmap read successful"<<endl;
+		}
+		else
+		{
+			cout<<"Problem reading model map."<<endl;
+			return(1);
+		}
 	}
 	
-	cout<<"Please enter the name of the V model map"<<endl;
+	cout<<"Please enter the name of the V model map (0 for none)"<<endl;
 	cin>>modelname;
-	err = quickfits_read_map( modelname.c_str() , fitsi_map , vmap , null_double , null_double , null_double);
-	if(err==0)
+	if(modelname.compare("0") == 0)
 	{
-		cout<<"Vmap read successful"<<endl;
+		memset(vmap, 0.0, sizeof(double)*imsize2);
 	}
 	else
 	{
-		cout<<"Problem reading model map."<<endl;
-		return(1);
+		err = quickfits_read_map( modelname.c_str() , fitsi_map , vmap , null_double , null_double , null_double);
+		if(err==0)
+		{
+			cout<<"Qmap read successful"<<endl;
+		}
+		else
+		{
+			cout<<"Problem reading model map."<<endl;
+			return(1);
+		}
 	}
 	
-	printf("Detected images sizes and cellsize: %d, %d, %lf, %lf",fitsi_map.imsize_ra,fitsi_map.imsize_dec,fitsi_map.cell_ra,fitsi_map.cell_dec);
+	printf("Detected images sizes and cellsize: %d, %d, %lf, %lf\n",fitsi_map.imsize_ra,fitsi_map.imsize_dec,fitsi_map.cell_ra,fitsi_map.cell_dec);
 	cout<<"Manually override detected cellsize? (1 = yes, 0 = no)"<<endl;
 	cin>>i;
 	if(i!=0)
@@ -216,10 +238,22 @@ int main()
 	cout<<"\t"<<fitsi.nvis<<" visibilites read."<<endl;
 	cout<<"\t"<<fitsi.nif<<" IF(s) with "<<fitsi.nchan<<" channel(s) each detected."<<endl;
 	
+	cout<<"Would you like to overwrite the UV file frequency with the model map frequency? (1/0)"<<endl;
+	cin>>i;
+	if(i!=0)
+	{
+		cout<<"Resulting UV model files will be at the frequency of the model map."<<endl;
+		
+		fitsi.freq = fitsi_map.freq;
+	}
+	
+	
 	
 	fitsi_map.ra = fitsi.ra;
 	fitsi_map.dec = fitsi.dec;
 	fitsi_map.equinox = fitsi.equinox;
+	strcpy(fitsi_map.object , "SIMUV_MD");
+	strcpy(fitsi.object , fitsi_map.object);
 
 
 	err = quickfits_write_map( "model_imap.fits" , imap , fitsi_map, history);
