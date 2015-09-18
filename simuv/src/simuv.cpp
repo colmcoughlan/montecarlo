@@ -1,4 +1,4 @@
-// Version 1.11
+// Version 1.12
 
 /*
  Copyright (c) 2014, Colm Coughlan
@@ -78,7 +78,7 @@ int main()
 	shift[0]=0.0;
 	shift[1]=0.0;
 	
-	int peak[2];
+	int phase_centre[2];
 
 	ifstream fin;
 	ofstream fout;
@@ -87,7 +87,7 @@ int main()
 	char history[]="Simuv: Model written out.";
 
 
-	cout<<"Welcome to simuv v1.11"<<endl;
+	cout<<"Welcome to simuv v1.13"<<endl;
 	cout<<"Colm Coughlan. colmcoughlanirl@gmail.com"<<endl;
 	cout<<"This tool will create a simulated observation of model FITS files with the UV data from a real observation"<<endl;
 	cout<<"Values in the FITS models are interpreted as fluxes in Jy."<<endl;
@@ -117,12 +117,19 @@ int main()
 				if(imap[i*fitsi_map.imsize_ra+j]>temp)
 				{
 					temp = imap[i*fitsi_map.imsize_ra+j];
-					peak[1] = i;
-					peak[0] = j;
+					phase_centre[1] = i;
+					phase_centre[0] = j;
 				}
 			}
 		}
-		cout<<"Peak of "<<temp<<" detected at ("<<peak[1]<<","<<peak[0]<<")."<<endl;
+		cout<<"Peak of "<<temp<<" detected at ("<<phase_centre[1]<<","<<phase_centre[0]<<")."<<endl;
+		cout<<"Place phase center on peak? (1 to centre on peak, 0 to centre on middle of map)"<<endl;
+		cin>>i;
+		if( i == 0)
+		{
+			phase_centre[0] = fitsi_map.imsize_ra;
+			phase_centre[1] = fitsi_map.imsize_dec;
+		}
 	}
 	else
 	{
@@ -196,12 +203,15 @@ int main()
 	if(i!=0)
 	{
 		cout<<"Please enter the new ra cellsize in as"<<endl;
-		cin>>fitsi_map.cell_ra;
+		cin>>cellx;
 		cout<<"Please enter the new dec cellsize in as"<<endl;
-		cin>>fitsi_map.cell_dec;
+		cin>>celly;
 		
-		cellx = fitsi_map.cell_ra * (M_PI)/(180.0*3600.0);	// convert from degrees to rad
-		celly = fitsi_map.cell_dec * (M_PI)/(180.0*3600.0);
+		fitsi_map.cell_ra = -cellx / 3600.0;	// convert to degrees for storage in FITS format
+		fitsi_map.cell_dec = celly / 3600.0;
+		
+		cellx = cellx * (M_PI)/(180.0*3600.0);	// convert from as to rad
+		celly = celly * (M_PI)/(180.0*3600.0);
 	}
 	else
 	{
@@ -264,7 +274,7 @@ int main()
 
 	cout<<"Performing DFT - this may take a moment."<<endl;
 //  DFT model into uvblock_model
-	err = dft_model(u_array, v_array, fitsi.nvis, fitsi.freq, if_array, fitsi.nif, fitsi.nchan, fitsi.central_chan, fitsi.chan_width, imap, qmap, umap, vmap, fitsi_map.imsize_ra , fitsi_map.imsize_dec, cellx , celly, uvblock_model,blocksize,peak);
+	err = dft_model(u_array, v_array, fitsi.nvis, fitsi.freq, if_array, fitsi.nif, fitsi.nchan, fitsi.central_chan, fitsi.chan_width, imap, qmap, umap, vmap, fitsi_map.imsize_ra , fitsi_map.imsize_dec, cellx , celly, uvblock_model,blocksize,phase_centre);
 
 
 
@@ -404,7 +414,7 @@ string int_to_str(int i)
 }
 
 
-int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize_ra, int imsize_dec, double cell_ra, double cell_dec, double* uvblock, int blocksize, int peak[])
+int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int nif, int nchan, int central_chan, double chan_width, double* imodel, double* qmodel, double* umodel, double* vmodel, int imsize_ra, int imsize_dec, double cell_ra, double cell_dec, double* uvblock, int blocksize, int phase_centre[])
 {
 	int i,j,k, xctr, yctr,n;
 	double u_curr, v_curr, temp1, temp2, curr_freq;
@@ -420,12 +430,12 @@ int dft_model(double* u, double* v, int nvis, double freq, double* if_array, int
 	
 	for(i=0;i<imsize_ra;i++)	// note ra should be reversed
 	{
-		grid_ra[i] = -(i-peak[0])*cell_ra;
+		grid_ra[i] = -(i-phase_centre[0])*cell_ra;
 	}
 	
 	for(i=0;i<imsize_dec;i++)
 	{
-		grid_dec[i] = (i-peak[1])*cell_dec;
+		grid_dec[i] = (i-phase_centre[1])*cell_dec;
 	}
 
 

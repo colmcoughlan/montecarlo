@@ -1,1 +1,3 @@
+v1.13 - Fixed bug where the wrong cellsize was written out in the model maps (bug only present when user overrode old cellsizes, did not affect UV data produced).
+v1.12 - Can now choose to place phase-centre on peak of Stokes I map (old default) or on centre of image (new option).
 v1.11 - No longer need to add polarisation model maps if they are not needed.
