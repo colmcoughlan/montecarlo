@@ -1,4 +1,4 @@
-// Version 1.12
+// Version 1.15
 
 /*
  Copyright (c) 2014, Colm Coughlan
@@ -45,8 +45,7 @@ int main()
 
 	string uvfits;
 	string modelname;
-	string tempfilename;
-
+	string stem;
 
 	int err;
 	int i,j,k;
@@ -87,7 +86,7 @@ int main()
 	char history[]="Simuv: Model written out.";
 
 
-	cout<<"Welcome to simuv v1.13"<<endl;
+	cout<<"Welcome to simuv v1.15"<<endl;
 	cout<<"Colm Coughlan. colmcoughlanirl@gmail.com"<<endl;
 	cout<<"This tool will create a simulated observation of model FITS files with the UV data from a real observation"<<endl;
 	cout<<"Values in the FITS models are interpreted as fluxes in Jy."<<endl;
@@ -257,7 +256,8 @@ int main()
 		fitsi.freq = fitsi_map.freq;
 	}
 	
-	
+	cout<<"Please enter a stem for all output data."<<endl;
+	cin>>stem;
 	
 	fitsi_map.ra = fitsi.ra;
 	fitsi_map.dec = fitsi.dec;
@@ -265,11 +265,22 @@ int main()
 	strcpy(fitsi_map.object , "SIMUV_MD");
 	strcpy(fitsi.object , fitsi_map.object);
 
-
-	err = quickfits_write_map( "model_imap.fits" , imap , fitsi_map, history);
-	err = quickfits_write_map( "model_qmap.fits" , qmap , fitsi_map, history);
-	err = quickfits_write_map( "model_umap.fits" , umap , fitsi_map, history);
-	err = quickfits_write_map( "model_vmap.fits" , vmap , fitsi_map, history);
+	modelname.assign(stem);
+	modelname.append(".imodel.fits");
+	fitsi_map.stokes = 1.0;
+	err = quickfits_write_map( modelname.c_str() , imap , fitsi_map, history);
+	modelname.assign(stem);
+	modelname.append(".qmodel.fits");
+	fitsi_map.stokes = 2.0;
+	err = quickfits_write_map( modelname.c_str() , qmap , fitsi_map, history);
+	modelname.assign(stem);
+	modelname.append(".umodel.fits");
+	fitsi_map.stokes = 3.0;
+	err = quickfits_write_map( modelname.c_str() , umap , fitsi_map, history);
+	modelname.assign(stem);
+	modelname.append(".vmodel.fits");
+	fitsi_map.stokes = 4.0;
+	err = quickfits_write_map( modelname.c_str() , vmap , fitsi_map, history);
 
 
 	cout<<"Performing DFT - this may take a moment."<<endl;
@@ -280,14 +291,16 @@ int main()
 
 	cout<<"DFT complete - writing results to fits file"<<endl;
 
-	fin.open(uvfits.c_str(), fstream::binary);
-	fout.open("output_no_noise.fits", fstream::trunc|fstream::binary);
+	fin.open(uvfits.c_str(), fstream::binary);	// open input file (will be left open until end of file)
+	
+	modelname.assign(stem);
+	modelname.append(".no_noise.uv.fits");
+	fout.open(modelname.c_str(), fstream::trunc|fstream::binary);	// copy over the entire UV file
 	fout<<fin.rdbuf();
 	fout.close();
 
 
-	tempfilename.assign("output_no_noise.fits");
-	err=quickfits_overwrite_uv_data(tempfilename.c_str(), fitsi, u_array, v_array, uvblock_model);
+	err=quickfits_overwrite_uv_data(modelname.c_str(), fitsi, u_array, v_array, uvblock_model);	// now overwrite the data with the new values
 
 	cout<<"Would you like to add normally distributed noise to the DFT? (1 = yes, 0 = no)"<<endl;
 	cin>>question;
@@ -304,7 +317,7 @@ int main()
 		T = gsl_rng_default;
 		r = gsl_rng_alloc (T);
 
-		seed = time (NULL) * getpid();
+		seed = time (NULL) * getpid();	// set seed for RNG
 		gsl_rng_set ( r, seed);
 
 
@@ -344,10 +357,11 @@ int main()
 			fin.seekg(0, ios::beg);
 			fin.clear();
 
-			modelname.assign("output_");
+			modelname.assign(stem);
+			modelname.append("_");
 			modelname.append(int_to_str(i+1));
-			modelname.append(".fits");
-			fout.open(modelname.c_str(), fstream::trunc|fstream::binary);
+			modelname.append(".uv.fits");
+			fout.open(modelname.c_str(), fstream::trunc|fstream::binary);	// copy raw uv data to new file
 			fout<<fin.rdbuf();
 			fout.close();
 
