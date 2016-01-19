@@ -40,6 +40,7 @@ int main()
 {
 	fitsinfo_uv fitsi;
 	fitsinfo_map fitsi_map;
+	fitsi_map.cc_table_version = -1;
 
 	int blocksize;
 

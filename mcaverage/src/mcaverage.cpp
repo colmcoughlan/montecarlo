@@ -72,6 +72,7 @@ int main(int argc, char** argv)
 	}
 
 	fitsinfo_map fitsi;
+	fitsi.cc_table_version = -1;
 	int imsize;
 	double cell;	// stored in degrees
 

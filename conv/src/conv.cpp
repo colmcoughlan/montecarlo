@@ -29,6 +29,7 @@ int main(int argc, char** argv)
 	}
 	
 	fitsinfo_map fitsi;
+	fitsi.cc_table_version = -1;
 
 	string model_map_name;
 	string residual_map_name;
