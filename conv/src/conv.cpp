@@ -16,15 +16,17 @@ int gen_gauss(double* matrix, int imsize, double cellsize, double bmaj, double b
 void arrange_ft(double* arr, int imsize);
 int convolve(double* data, fftw_complex* response, int imsize, int pad_factor, double* output , fftw_plan& forward_transform, fftw_plan& backward_transform, double* double_buff, fftw_complex* complex_buff);
 int ft_beam(double* beam, fftw_complex* ft_beam, int imsize, int pad_factor, fftw_plan& plan, double* double_buff, fftw_complex* complex_buff);
+int genmask(double* residual_map, bool* mask, int imsize2);
+int applymask(double* map,bool* mask, int imsize2,double repval);
 
 int main(int argc, char** argv)
 {
-	if(argc!=9)
+	if(argc!=10)
 	{
 		cout<<"Convolution tool to convolved model map with specified beam (as,as,deg)"<<endl;
 		cout<<"Residual map also added (set to 0 if none)"<<endl;
 		cout<<"Set centre of convolving Gaussian (peak of dirty map)"<<endl;
-		cout<<"Useage: conv model_map residual_map bmaj bmin bpa centre_x centre_y output_map"<<endl;
+		cout<<"Useage: conv model_map residual_map bmaj bmin bpa centre_x centre_y scale_residuals output_map"<<endl;
 		return(1);
 	}
 	
@@ -41,7 +43,9 @@ int main(int argc, char** argv)
 	double *model_map;
 	double *residual_map;
 	double *double_buff;
+	bool *mask;
 	bool do_residual = false;
+	bool scale_residual = false;
 
 	double bmaj_in , bmin_in , bpa_in;
 	double bmaj_out , bmin_out , bpa_out;
@@ -77,22 +81,8 @@ int main(int argc, char** argv)
 	bpa_out = atof(argv[5]);
 	peak[0] = atoi(argv[6]);
 	peak[1] = atoi(argv[7]);
-	output_map_name.assign(argv[8]);
-/*
-	cout<<"Convolution Tool."<<endl;
-	cout<<"Please enter the name of the model map"<<endl;
-	cin>>model_map_name;
-	cout<<"Please enter the name of the residual map"<<endl;
-	cin>>residual_map_name;
-	cout<<"Please enter the desired bmaj (as)"<<endl;
-	cin>>bmaj_out;
-	cout<<"Please enter the desired bmin (as)"<<endl;
-	cin>>bmin_out;
-	cout<<"Please enter the desired bpa (deg)"<<endl;
-	cin>>bpa_out;
-	cout<<"What output name would you like?"<<endl;
-	cin>>output_map_name;
-*/
+	scale_residual = bool(atoi(argv[8]));
+	output_map_name.assign(argv[9]);
 
 	// convert bmaj, bmin to degrees
 
@@ -102,14 +92,8 @@ int main(int argc, char** argv)
 	if(residual_map_name.compare("0") != 0)
 	{
 		do_residual=true;
-		cout<<"Residual map will be added."<<endl;
 	}
-	else
-	{
-		cout<<"No residuals will be added."<<endl;
-	}
-
-	// read in the information from the header of the RESIDUAL MAP if possible
+	// read in the information from the header of the RESIDUAL MAP if possible. Check for blanking too.
 
 	if(do_residual)
 	{
@@ -145,6 +129,7 @@ int main(int argc, char** argv)
 	err = pad_factor * imsize * ( pad_factor * imsize / 2 + 1 );	// allowing for padding in buffers and reducing memory needed for r2c and c2r transform by taking Herm. conjugacy into account
 
 	model_map = new double[imsize2];
+	mask = new bool[imsize2];
 	beam_ft = ( fftw_complex* ) fftw_malloc( sizeof( fftw_complex ) * err );	// saving memory with herm. conjugacy
 	complex_buff = ( fftw_complex* ) fftw_malloc( sizeof( fftw_complex ) * err );	// allowing room for padding in buffers
 	double_buff = ( double* ) fftw_malloc( sizeof( double ) * pad_factor * pad_factor * imsize2 );
@@ -180,17 +165,30 @@ int main(int argc, char** argv)
 	fitsi.ncc = 0;
 	quickfits_read_map( model_map_name.c_str() , fitsi , model_map , &null_double , &null_double , &null_double );	// load model map
 	
-	if(do_residual)
+	if(do_residual)// if loading residual use it for mask check, otherwise try the model
 	{
 		quickfits_read_map( residual_map_name.c_str() , fitsi , residual_map , &null_double , &null_double , &null_double);	// load residual map
+		genmask(residual_map, mask, imsize2);
+	}
+	else
+	{
+		genmask(model_map, mask, imsize2);
 	}
 	
+	applymask(model_map, mask, imsize2, 0.0);
 	convolve( model_map , beam_ft , imsize , pad_factor  , model_map , forward_transform , backward_transform , double_buff , complex_buff);	// convolve and overwrite model_map
 
 	if(do_residual)
 	{
-		temp = bmaj_out * bmin_out * M_PI / ( 4.0 * log(2) * fitsi.cell_ra * fitsi.cell_dec );	// rescale residuals to new beam units
-		temp = temp / ( bmaj_in * bmin_in * M_PI / ( 4.0 * log(2) * fitsi.cell_ra * fitsi.cell_dec ) );
+		if(scale_residual)
+		{
+			temp = bmaj_out * bmin_out * M_PI / ( 4.0 * log(2) * fitsi.cell_ra * fitsi.cell_dec );	// rescale residuals to new beam units
+			temp = temp / ( bmaj_in * bmin_in * M_PI / ( 4.0 * log(2) * fitsi.cell_ra * fitsi.cell_dec ) );
+		}
+		else
+		{
+			temp = 1.0;
+		}
 	
 		#pragma omp parallel for
 		for(int i=0;i<imsize2;i++)
@@ -202,10 +200,12 @@ int main(int argc, char** argv)
 
 	// write out answer
 	
+	fitsi.have_beam = true;
 	fitsi.bmaj = bmaj_out;
 	fitsi.bmin = bmin_out;
 	fitsi.bpa = bpa_out;
 
+	applymask(model_map, mask, imsize2, NAN);
 	err = quickfits_write_map( output_map_name.c_str() , model_map , fitsi , history);
 
 	// clean up and exit
@@ -219,6 +219,7 @@ int main(int argc, char** argv)
 	fftw_free(complex_buff);
 
 	delete[] model_map;
+	delete[] mask;
 	if(do_residual)
 	{
 		delete[] residual_map;
@@ -463,4 +464,39 @@ int ft_beam(double* beam, fftw_complex* ft_beam, int imsize, int pad_factor, fft
 
 	return(0);
 }
+
+int genmask(double* map, bool* mask, int imsize2)
+{
+	int i;
+	
+	#pragma omp parallel for
+	for(i=0; i<imsize2;i++)
+	{
+		if(map[i] != map[i])	// mask = True where map = NAN
+		{
+			mask[i] = true;
+		}
+		else
+		{
+			mask[i] = false;
+		}
+	}
+	
+	return(0);
+}
+
+int applymask(double* map,bool* mask, int imsize2,double repval)
+{
+	int i;
+	
+	#pragma omp parallel for
+	for(i=0; i<imsize2;i++)
+	{
+		if(mask[i])
+		{
+			map[i] = repval;
+		}
+	}
+}
+
 
