@@ -168,7 +168,7 @@ int main()
 		err = quickfits_read_map( modelname.c_str() , fitsi_map , umap , null_double , null_double , null_double);
 		if(err==0)
 		{
-			cout<<"Qmap read successful"<<endl;
+			cout<<"Umap read successful"<<endl;
 		}
 		else
 		{
