@@ -98,6 +98,11 @@ int main(int argc, char** argv)
 	if(do_residual)
 	{
 		err = quickfits_read_map_header( residual_map_name.c_str() , &fitsi);
+		if(err!=0)
+		{
+			cout<<"Error reading "<<residual_map_name<<endl;
+			return(1);
+		}
 		if(fitsi.bmaj ==0 or fitsi.bmin ==0)
 		{
 			cout<<"Beam information not found in "<<residual_map_name.c_str()<<endl;
@@ -116,6 +121,11 @@ int main(int argc, char** argv)
 	else
 	{
 		err = quickfits_read_map_header( model_map_name.c_str() , &fitsi);
+		if(err!=0)
+		{
+			cout<<"Error reading "<<model_map_name<<endl;
+			return(1);
+		}
 	}
 	
 	imsize = fitsi.imsize_ra;

@@ -197,7 +197,7 @@ int main()
 		}
 	}
 	
-	printf("Detected images sizes and cellsize: %d, %d, %lf, %lf\n",fitsi_map.imsize_ra,fitsi_map.imsize_dec,fitsi_map.cell_ra,fitsi_map.cell_dec);
+	printf("Detected images sizes and cellsize: %d, %d, %lf as, %lf as\n",fitsi_map.imsize_ra,fitsi_map.imsize_dec,fitsi_map.cell_ra*3600.0,fitsi_map.cell_dec*3600.0);
 	cout<<"Manually override detected cellsize? (1 = yes, 0 = no)"<<endl;
 	cin>>i;
 	if(i!=0)
