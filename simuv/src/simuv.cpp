@@ -256,6 +256,10 @@ int main()
 		
 		fitsi.freq = fitsi_map.freq;
 	}
+	else
+	{
+		fitsi_map.freq = fitsi.freq;
+	}
 	
 	cout<<"Please enter a stem for all output data."<<endl;
 	cin>>stem;
