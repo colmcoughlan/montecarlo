@@ -1,3 +1,4 @@
+v1.15 - Better error handling and user interface. Made centring consistent with new quickfits/conv.
 v1.14 - Updated to write out correct Stokes parameter information on model maps
 v1.13 - Fixed bug where the wrong cellsize was written out in the model maps (bug only present when user overrode old cellsizes, did not affect UV data produced).
 v1.12 - Can now choose to place phase-centre on peak of Stokes I map (old default) or on centre of image (new option).

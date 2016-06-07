@@ -127,8 +127,8 @@ int main()
 		cin>>i;
 		if( i == 0)
 		{
-			phase_centre[0] = fitsi_map.imsize_ra;
-			phase_centre[1] = fitsi_map.imsize_dec;
+			phase_centre[0] = (fitsi_map.imsize_ra/2)-1;
+			phase_centre[1] = (fitsi_map.imsize_dec/2)-1;
 		}
 	}
 	else
