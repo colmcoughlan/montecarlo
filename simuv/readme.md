@@ -20,8 +20,8 @@ Once you have the dependencies installed, make sure they are on your library pat
 To build, edit the makefiles such that:
 
   1. link=\<your C compiler>
-  2. INC=-I\/<path to quickfits.h directory>
-  3. LINKS=-L\/<path to quickfits.a directory> -lcfitsio -lquickfits -lgsl -fopenmp
+  2. INC=-I/\<path to quickfits.h directory>
+  3. LINKS=-L/\<path to quickfits.a directory> -lcfitsio -lquickfits -lgsl -fopenmp
   
 Note this assumes that the GSL etc. have been installed onto your path already. If this is not the case, you should specify additional -I and 
 -L paths to their location.
