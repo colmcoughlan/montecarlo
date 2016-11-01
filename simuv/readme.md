@@ -1,3 +1,9 @@
+# Usage
+
+To use just call the executable: ./simuv.
+
+This software simulates the visibilities for a given radio map and UV distribution. Make sure to use AIPS's FITAB to export the UV distribution. Optionally thermal noise can also be added to the result and many instances created.
+
 # Installation instructions
 
 Dependencies: a C compiler, cfitsio, quickfits (https://github.com/colmcoughlan/quickfits) and gsl.
