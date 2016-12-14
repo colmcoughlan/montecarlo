@@ -94,8 +94,14 @@ int main()
 	
 	cout<<"Please enter the name of the I model map"<<endl;
 	cin>>modelname;
-	
+
 	err =  quickfits_read_map_header(modelname.c_str() , &fitsi_map);
+	if(err != 0){
+		cout<<"Problem reading from header."<<endl;
+		return(1);
+	}
+
+
 	fitsi_map.ncc = 0;
 	fitsi_map.cc_table_version = 0;
 	imsize2 = fitsi_map.imsize_ra * fitsi_map.imsize_dec;
